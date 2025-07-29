@@ -13,11 +13,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "V60 Timer",
+  title: "Hoffmann V60 Timer",
   description: "Perfect your pour-over technique",
   icons: {
-    icon: '/favicon.svg',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
     shortcut: '/favicon.svg',
+    apple: '/apple-touch-icon.png',
   },
 };
 
