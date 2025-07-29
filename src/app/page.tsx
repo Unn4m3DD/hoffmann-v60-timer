@@ -178,8 +178,8 @@ export default function V60Timer() {
       </div>
       
       <Card className="w-full max-w-md shadow-2xl border-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl relative z-10 py-3 sm:py-5">
-        <CardHeader className="text-center pb-0 sm:pb-5">
-          <div className="flex items-center justify-between sm:mb-2">
+        <CardHeader className="text-center pb-0">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="p-1 sm:p-1.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
                 <Coffee className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
