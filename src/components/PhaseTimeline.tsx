@@ -1,4 +1,5 @@
 import { Label } from "@/components/ui/label";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Phase {
   id: number;
@@ -27,25 +28,41 @@ export default function PhaseTimeline({
   return (
     <div className="space-y-2">
       <Label className="text-purple-700 dark:text-purple-300 font-medium">Timeline</Label>
-      <div className="space-y-2">
-        {visiblePhases.map((phase, index) => {
-          const isActive = index === 0; // First visible phase is always active
-          const isFuture = index > 0; // Other phases are future
-          const isInPourWindow = currentTime >= phase.time && currentTime <= phase.endTime;
-          
-          return (
-            <div
-              key={phase.id}
-              className={`flex items-center justify-between p-3 rounded-xl transition-all duration-500 shadow-lg ${
-                isActive && isInPourWindow
-                  ? "bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-800 dark:to-emerald-800 border-2 border-green-400 dark:border-green-500 scale-105 shadow-xl"
-                  : isActive
-                  ? "bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-800 dark:to-pink-800 border-2 border-purple-400 dark:border-purple-500 scale-105 shadow-xl"
-                  : isFuture
-                  ? "bg-gradient-to-r from-gray-100 to-slate-100 dark:from-slate-800 dark:to-gray-800 border border-gray-300 dark:border-slate-600"
-                  : "bg-gradient-to-r from-gray-100 to-slate-100 dark:from-slate-800 dark:to-gray-800 border border-gray-300 dark:border-slate-600"
-              }`}
-            >
+      <AnimatePresence mode="popLayout">
+        <div className="space-y-2">
+          {visiblePhases.map((phase, index) => {
+            const isActive = index === 0; // First visible phase is always active
+            const isFuture = index > 0; // Other phases are future
+            const isInPourWindow = currentTime >= phase.time && currentTime <= phase.endTime;
+            
+            return (
+              <motion.div
+                key={phase.id}
+                initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ 
+                  opacity: 0, 
+                  y: -20, 
+                  scale: 0.9,
+                  height: 0,
+                  marginBottom: 0,
+                  transition: { duration: 0.3, ease: "easeInOut" }
+                }}
+                transition={{ 
+                  duration: 0.4, 
+                  ease: "easeOut",
+                  delay: index * 0.1 
+                }}
+                className={`flex items-center justify-between p-3 rounded-xl transition-all duration-500 shadow-lg ${
+                  isActive && isInPourWindow
+                    ? "bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-800 dark:to-emerald-800 border-2 border-green-400 dark:border-green-500 scale-105 shadow-xl"
+                    : isActive
+                    ? "bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-800 dark:to-pink-800 border-2 border-purple-400 dark:border-purple-500 scale-105 shadow-xl"
+                    : isFuture
+                    ? "bg-gradient-to-r from-gray-100 to-slate-100 dark:from-slate-800 dark:to-gray-800 border border-gray-300 dark:border-slate-600"
+                    : "bg-gradient-to-r from-gray-100 to-slate-100 dark:from-slate-800 dark:to-gray-800 border border-gray-300 dark:border-slate-600"
+                }`}
+              >
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${
                   isActive && isInPourWindow
@@ -92,10 +109,11 @@ export default function PhaseTimeline({
                   {phase.cumulativeWater.toFixed(0)}g
                 </div>
               </div>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+        </div>
+      </AnimatePresence>
     </div>
   );
 } 
