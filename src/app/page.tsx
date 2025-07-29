@@ -37,45 +37,95 @@ export default function V60Timer() {
     const waterAmount = (coffee * 250) / 15; // 15g coffee to 250g water ratio
 
     return [
+      // Phase 1: Bloom pour (0-15s)
       { 
         id: 0, 
         time: 0, 
-        waterAmount: waterAmount * 0.3, // 30% for bloom
-        cumulativeWater: waterAmount * 0.3,
-        description: "Bloom (0-15s)",
+        waterAmount: waterAmount * 0.2,
+        cumulativeWater: waterAmount * 0.2,
+        description: "Bloom pour (0-15s)",
         endTime: 15
       },
+      // Phase 2: First rest (15-45s)
       { 
         id: 1, 
-        time: 45, 
-        waterAmount: waterAmount * 0.2, // 20%
-        cumulativeWater: waterAmount * 0.5,
-        description: "Second pour (45s-1:00)",
-        endTime: 60
+        time: 15, 
+        waterAmount: 0,
+        cumulativeWater: waterAmount * 0.2,
+        description: "Rest (15-45s)",
+        endTime: 45
       },
+      // Phase 3: Second pour (45-60s)
       { 
         id: 2, 
-        time: 70, 
-        waterAmount: waterAmount * 0.2, // 20%
-        cumulativeWater: waterAmount * 0.7,
-        description: "Third pour (1:10-1:20)",
-        endTime: 80
+        time: 45, 
+        waterAmount: waterAmount * 0.2,
+        cumulativeWater: waterAmount * 0.4,
+        description: "Second pour (45-60s)",
+        endTime: 60
       },
+      // Phase 4: Second rest (60-70s)
       { 
         id: 3, 
-        time: 90, 
-        waterAmount: waterAmount * 0.15, // 15%
-        cumulativeWater: waterAmount * 0.85,
-        description: "Fourth pour (1:30-1:40)",
-        endTime: 100
+        time: 60, 
+        waterAmount: 0,
+        cumulativeWater: waterAmount * 0.4,
+        description: "Rest (60-70s)",
+        endTime: 70
       },
+      // Phase 5: Third pour (70-80s)
       { 
         id: 4, 
+        time: 70, 
+        waterAmount: waterAmount * 0.2,
+        cumulativeWater: waterAmount * 0.6,
+        description: "Third pour (70-80s)",
+        endTime: 80
+      },
+      // Phase 6: Third rest (80-90s)
+      { 
+        id: 5, 
+        time: 80, 
+        waterAmount: 0,
+        cumulativeWater: waterAmount * 0.6,
+        description: "Rest (80-90s)",
+        endTime: 90
+      },
+      // Phase 7: Fourth pour (90-100s)
+      { 
+        id: 6, 
+        time: 90, 
+        waterAmount: waterAmount * 0.2,
+        cumulativeWater: waterAmount * 0.8,
+        description: "Fourth pour (90-100s)",
+        endTime: 100
+      },
+      // Phase 8: Fourth rest (100-110s)
+      { 
+        id: 7, 
+        time: 100, 
+        waterAmount: 0,
+        cumulativeWater: waterAmount * 0.8,
+        description: "Rest (100-110s)",
+        endTime: 110
+      },
+      // Phase 9: Final pour (110-120s)
+      { 
+        id: 8, 
         time: 110, 
-        waterAmount: waterAmount * 0.15, // 15%
+        waterAmount: waterAmount * 0.2,
         cumulativeWater: waterAmount,
-        description: "Final pour (1:50-2:00)",
+        description: "Final pour (110-120s)",
         endTime: 120
+      },
+      // Phase 10: Final rest (120-180s)
+      { 
+        id: 9, 
+        time: 120, 
+        waterAmount: 0,
+        cumulativeWater: waterAmount,
+        description: "Final rest (120-180s)",
+        endTime: 180
       },
     ];
   }, []);
@@ -147,8 +197,17 @@ export default function V60Timer() {
   };
 
   const getProgress = () => {
-    if (currentPhase >= phases.length - 1) return 100;
     const currentPhaseData = phases[currentPhase];
+    if (!currentPhaseData) return 0;
+    
+    // For the last phase, calculate progress based on endTime
+    if (currentPhase >= phases.length - 1) {
+      const timeInPhase = currentTime - currentPhaseData.time;
+      const phaseDuration = currentPhaseData.endTime - currentPhaseData.time;
+      return Math.min((timeInPhase / phaseDuration) * 100, 100);
+    }
+    
+    // For other phases, calculate based on next phase start time
     const nextPhaseData = phases[currentPhase + 1];
     const phaseDuration = nextPhaseData.time - currentPhaseData.time;
     const timeInPhase = currentTime - currentPhaseData.time;

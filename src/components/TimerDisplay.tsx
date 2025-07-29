@@ -67,7 +67,7 @@ export default function TimerDisplay({
               {formatTime(currentTime)}
             </div>
             <div className="text-sm text-purple-600 dark:text-purple-300 font-medium">
-              Phase {currentPhase + 1} of 5
+              Phase {currentPhase + 1} of 10
             </div>
             <motion.div
               key={getCurrentPhase()?.cumulativeWater.toFixed(0)}
