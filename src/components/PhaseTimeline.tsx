@@ -65,11 +65,11 @@ export default function PhaseTimeline({
                     ? "text-gray-600 dark:text-gray-300"
                     : "text-gray-500 dark:text-gray-400"
                 }`}>
-                  {phase.description}
+                  {phase.description.replace(/\([^)]*\)/g, '').trim()}
                 </span>
               </div>
               <div className="text-right">
-                <div className={`text-sm font-mono ${
+                <div className={`text-sm font-mono font-bold ${
                   isActive && isInPourWindow
                     ? "text-green-700 dark:text-green-300"
                     : isActive
@@ -78,9 +78,9 @@ export default function PhaseTimeline({
                     ? "text-gray-600 dark:text-gray-400"
                     : "text-gray-500 dark:text-gray-400"
                 }`}>
-                  {formatTime(phase.time)}
+                  {formatTime(phase.time)} - {formatTime(phase.endTime)}
                 </div>
-                <div className={`text-xs ${
+                <div className={`text-xs font-mono ${
                   isActive && isInPourWindow
                     ? "text-green-600 dark:text-green-400"
                     : isActive
