@@ -30,7 +30,7 @@ export default function V60Timer() {
   const [phases, setPhases] = useState<Phase[]>([]);
   const [theme, setTheme] = useState<Theme>("system");
   const [, setHasFinished] = useState(false);
-  const [splitA, setSplitA] = useState<number | null>(null);
+  const [splitAGrams, setSplitAGrams] = useState<number | null>(null);
 
 
   // Calculate phases based on coffee amount
@@ -167,18 +167,15 @@ export default function V60Timer() {
     return () => clearInterval(interval);
   }, [isRunning, phases, currentPhase]);
 
-  // Initialize or clamp split based on coffee amount and expected yield
+  // Initialize or clamp split based on coffee amount (grams)
   useEffect(() => {
-    const totalWater = (coffeeAmount * 250) / 15;
-    const expectedYield = Math.max(0, Math.round(totalWater - coffeeAmount * 2));
-    if (splitA === null) {
-      setSplitA(Math.ceil(expectedYield / 2));
+    if (splitAGrams === null) {
+      setSplitAGrams(Math.ceil(coffeeAmount / 2));
       return;
     }
-    // Clamp if coffee changed
-    const clamped = Math.max(0, Math.min(splitA, expectedYield));
-    if (clamped !== splitA) setSplitA(clamped);
-  }, [coffeeAmount, splitA]);
+    const clamped = Math.max(0, Math.min(splitAGrams, coffeeAmount));
+    if (clamped !== splitAGrams) setSplitAGrams(clamped);
+  }, [coffeeAmount, splitAGrams]);
 
   // Theme management
   useEffect(() => {
@@ -206,7 +203,7 @@ export default function V60Timer() {
     setCurrentTime(0);
     setCurrentPhase(0);
     setHasFinished(false);
-    setSplitA(null);
+    setSplitAGrams(null);
   };
 
   const pauseTimer = () => {
@@ -218,7 +215,7 @@ export default function V60Timer() {
     setCurrentTime(0);
     setCurrentPhase(0);
     setHasFinished(false);
-    setSplitA(null);
+    setSplitAGrams(null);
   };
 
   const getCurrentPhase = () => {
@@ -371,17 +368,13 @@ export default function V60Timer() {
             {(() => {
               const totalWater = (coffeeAmount * 250) / 15;
               const expectedYield = Math.max(0, Math.round(totalWater - coffeeAmount * 2));
-              // Snap per gram of grounds (ml per 1g grounds)
-              const yieldPerGram = coffeeAmount > 0 ? expectedYield / coffeeAmount : expectedYield;
-              const stepMl = Math.max(1, Math.round(yieldPerGram));
-              const defaultA = Math.ceil(expectedYield / 2);
-              const rawA = splitA ?? defaultA;
-              const snappedA = Math.round(rawA / stepMl) * stepMl;
-              const cupA = Math.max(0, Math.min(snappedA, expectedYield));
-              const cupB = expectedYield - cupA;
-              // Derive grounds split as whole grams linked to step
-              const groundsA = Math.max(0, Math.min(coffeeAmount, Math.round(cupA / stepMl)));
+              // Determine grounds split (grams)
+              const defaultAGrams = Math.ceil(coffeeAmount / 2);
+              const groundsA = Math.max(0, Math.min(splitAGrams ?? defaultAGrams, coffeeAmount));
               const groundsB = Math.max(0, coffeeAmount - groundsA);
+              // Compute ml split proportionally to grounds, integers with sum preserved
+              const cupA = coffeeAmount > 0 ? Math.round((expectedYield * groundsA) / coffeeAmount) : 0;
+              const cupB = expectedYield - cupA;
               return (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
@@ -402,11 +395,11 @@ export default function V60Timer() {
                     </div>
                     <Slider
                       min={0}
-                      max={expectedYield}
-                      step={stepMl}
-                      value={[cupA]}
-                      onValueChange={(val: number[]) => setSplitA(val[0])}
-                      aria-label="Split dose A"
+                      max={coffeeAmount}
+                      step={1}
+                      value={[groundsA]}
+                      onValueChange={(val: number[]) => setSplitAGrams(val[0])}
+                      aria-label="Split dose A grounds"
                     />
                   </div>
                 </div>
