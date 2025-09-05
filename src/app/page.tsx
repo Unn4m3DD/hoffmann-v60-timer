@@ -29,7 +29,7 @@ export default function V60Timer() {
   const [currentPhase, setCurrentPhase] = useState(0);
   const [phases, setPhases] = useState<Phase[]>([]);
   const [theme, setTheme] = useState<Theme>("system");
-  const [hasFinished, setHasFinished] = useState(false);
+  const [, setHasFinished] = useState(false);
   const [splitA, setSplitA] = useState<number | null>(null);
 
 
@@ -167,12 +167,8 @@ export default function V60Timer() {
     return () => clearInterval(interval);
   }, [isRunning, phases, currentPhase]);
 
-  // Initialize or clamp split when finishing or coffee changes
+  // Initialize or clamp split based on coffee amount and expected yield
   useEffect(() => {
-    if (!hasFinished) {
-      setSplitA(null);
-      return;
-    }
     const totalWater = (coffeeAmount * 250) / 15;
     const expectedYield = Math.max(0, Math.round(totalWater - coffeeAmount * 2));
     if (splitA === null) {
@@ -182,7 +178,7 @@ export default function V60Timer() {
     // Clamp if coffee changed
     const clamped = Math.max(0, Math.min(splitA, expectedYield));
     if (clamped !== splitA) setSplitA(clamped);
-  }, [hasFinished, coffeeAmount, splitA]);
+  }, [coffeeAmount, splitA]);
 
   // Theme management
   useEffect(() => {
@@ -194,6 +190,9 @@ export default function V60Timer() {
     } else {
       root.classList.toggle("dark", theme === "dark");
     }
+    try {
+      localStorage.setItem('theme', theme);
+    } catch {}
   }, [theme]);
 
   const formatTime = (seconds: number) => {
@@ -362,63 +361,58 @@ export default function V60Timer() {
             )}
           </AnimatePresence>
 
-          {/* Split Dose - Show when finished */}
-          <AnimatePresence>
-            {hasFinished && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
-                className="rounded-xl p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-slate-800 dark:to-slate-800 border border-purple-200 dark:border-slate-700 shadow-lg"
-              >
-                {(() => {
-                  const totalWater = (coffeeAmount * 250) / 15;
-                  const expectedYield = Math.max(0, Math.round(totalWater - coffeeAmount * 2));
-                  // Snap per gram of grounds (ml per 1g grounds)
-                  const yieldPerGram = coffeeAmount > 0 ? expectedYield / coffeeAmount : expectedYield;
-                  const stepMl = Math.max(1, Math.round(yieldPerGram));
-                  const defaultA = Math.ceil(expectedYield / 2);
-                  const rawA = splitA ?? defaultA;
-                  const snappedA = Math.round(rawA / stepMl) * stepMl;
-                  const cupA = Math.max(0, Math.min(snappedA, expectedYield));
-                  const cupB = expectedYield - cupA;
-                  // Derive grounds split as whole grams linked to step
-                  const groundsA = Math.max(0, Math.min(coffeeAmount, Math.round(cupA / stepMl)));
-                  const groundsB = Math.max(0, coffeeAmount - groundsA);
-                  return (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Coffee grounds</div>
-                        <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">{coffeeAmount} g</div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Expected yield</div>
-                        <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">{expectedYield} ml</div>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Split dose</div>
-                          <div className="flex flex-col items-end gap-0.5">
-                            <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">A: {cupA} ml • B: {cupB} ml</div>
-                            <div className="text-xs font-mono text-purple-600 dark:text-purple-400">A: {groundsA} g • B: {groundsB} g</div>
-                          </div>
-                        </div>
-                        <Slider
-                          min={0}
-                          max={expectedYield}
-                          step={stepMl}
-                          value={[cupA]}
-                          onValueChange={(val: number[]) => setSplitA(val[0])}
-                          aria-label="Split dose A"
-                        />
+          {/* Split Dose - Always visible */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+            className="rounded-xl p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-slate-800 dark:to-slate-800 border border-purple-200 dark:border-slate-700 shadow-lg"
+          >
+            {(() => {
+              const totalWater = (coffeeAmount * 250) / 15;
+              const expectedYield = Math.max(0, Math.round(totalWater - coffeeAmount * 2));
+              // Snap per gram of grounds (ml per 1g grounds)
+              const yieldPerGram = coffeeAmount > 0 ? expectedYield / coffeeAmount : expectedYield;
+              const stepMl = Math.max(1, Math.round(yieldPerGram));
+              const defaultA = Math.ceil(expectedYield / 2);
+              const rawA = splitA ?? defaultA;
+              const snappedA = Math.round(rawA / stepMl) * stepMl;
+              const cupA = Math.max(0, Math.min(snappedA, expectedYield));
+              const cupB = expectedYield - cupA;
+              // Derive grounds split as whole grams linked to step
+              const groundsA = Math.max(0, Math.min(coffeeAmount, Math.round(cupA / stepMl)));
+              const groundsB = Math.max(0, coffeeAmount - groundsA);
+              return (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Coffee grounds</div>
+                    <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">{coffeeAmount} g</div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Expected yield</div>
+                    <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">{expectedYield} ml</div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Split dose</div>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">A: {cupA} ml • B: {cupB} ml</div>
+                        <div className="text-xs font-mono text-purple-600 dark:text-purple-400">A: {groundsA} g • B: {groundsB} g</div>
                       </div>
                     </div>
-                  );
-                })()}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                    <Slider
+                      min={0}
+                      max={expectedYield}
+                      step={stepMl}
+                      value={[cupA]}
+                      onValueChange={(val: number[]) => setSplitA(val[0])}
+                      aria-label="Split dose A"
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+          </motion.div>
         </CardContent>
       </Card>
     </div>
