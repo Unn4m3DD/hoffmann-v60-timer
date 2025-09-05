@@ -1,24 +1,20 @@
-<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none"
+  stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  class="lucide lucide-coffee-icon lucide-coffee">
   <defs>
     <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#8B5CF6"/>
-      <stop offset="100%" stop-color="#EC4899"/>
+      <stop offset="0%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#EC4899" />
     </linearGradient>
   </defs>
-  
+
   <!-- Background with rounded corners -->
-  <rect width="32" height="32" rx="6" fill="url(#gradient)"/>
-  
-  <!-- Coffee mug -->
-  <path d="M8 12h12c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2v-8c0-1.1.9-2 2-2z" 
-        stroke="white" stroke-width="1.5" fill="none"/>
-  
-  <!-- Mug handle -->
-  <path d="M20 14c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2v-4z" 
-        stroke="white" stroke-width="1.5" fill="none"/>
-  
-  <!-- Steam lines -->
-  <line x1="12" y1="8" x2="12" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="14" y1="7" x2="14" y2="9" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="16" y1="8" x2="16" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-</svg> 
+  <rect width="32" height="32" rx="6" fill="url(#gradient)" stroke-width="0" stroke="white" />
+  <g transform="translate(4, 4)">
+    <path d="M10 2v2" />
+    <path d="M14 2v2" />
+    <path
+      d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1" />
+    <path d="M6 2v2" />
+  </g>
+</svg>
