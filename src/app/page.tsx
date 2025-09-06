@@ -367,7 +367,7 @@ export default function V60Timer() {
           >
             {(() => {
               const totalWater = (coffeeAmount * 250) / 15;
-              const expectedYield = Math.max(0, Math.round(totalWater - coffeeAmount * 2));
+              const expectedYield = Math.max(0, Math.round(totalWater - coffeeAmount * 1.5));
               // Determine grounds split (grams)
               const defaultAGrams = Math.ceil(coffeeAmount / 2);
               const groundsA = Math.max(0, Math.min(splitAGrams ?? defaultAGrams, coffeeAmount));
