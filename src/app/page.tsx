@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Play, Pause, RotateCcw, Coffee } from "lucide-react";
+import { Play, Pause, RotateCcw, Coffee, Plus, Minus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import TimerDisplay from "@/components/TimerDisplay";
 import PhaseTimeline from "@/components/PhaseTimeline";
@@ -31,7 +31,19 @@ export default function V60Timer() {
   const [theme, setTheme] = useState<Theme>("system");
   const [, setHasFinished] = useState(false);
   const [splitAGrams, setSplitAGrams] = useState<number | null>(null);
+  const [expectedYield, setExpectedYield] = useState<number | null>(null); // ml
 
+  const FINAL_END_TIME = 180;
+
+  // Load saved theme on mount so UI reflects persisted choice
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'light' || saved === 'dark' || saved === 'system') {
+        setTheme(saved);
+      }
+    } catch {}
+  }, []);
 
   // Calculate phases based on coffee amount
   const calculatePhases = useCallback((coffee: number) => {
@@ -126,7 +138,7 @@ export default function V60Timer() {
         waterAmount: 0,
         cumulativeWater: waterAmount,
         description: "Final rest (120-180s)",
-        endTime: 180
+        endTime: FINAL_END_TIME
       },
     ];
   }, []);
@@ -151,12 +163,11 @@ export default function V60Timer() {
             setCurrentPhase(nextPhase.id);
           }
 
-          // Stop at 180s (3:00) and mark as finished
-          const finalEndTime = 180;
-          if (newTime >= finalEndTime) {
+          // Stop at FINAL_END_TIME and mark as finished
+          if (newTime >= FINAL_END_TIME) {
             setIsRunning(false);
             setHasFinished(true);
-            return finalEndTime;
+            return FINAL_END_TIME;
           }
 
           return newTime;
@@ -176,6 +187,77 @@ export default function V60Timer() {
     const clamped = Math.max(0, Math.min(splitAGrams, coffeeAmount));
     if (clamped !== splitAGrams) setSplitAGrams(clamped);
   }, [coffeeAmount, splitAGrams]);
+
+  // Load coffeeAmount and splitAGrams from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedCoffee = localStorage.getItem("coffeeAmount");
+      if (savedCoffee) {
+        const n = Math.max(1, Math.round(Number(savedCoffee)));
+        if (!Number.isNaN(n)) setCoffeeAmount(n);
+      }
+      const savedSplit = localStorage.getItem("splitAGrams");
+      if (savedSplit) {
+        const n = Math.max(0, Math.round(Number(savedSplit)));
+        if (!Number.isNaN(n)) setSplitAGrams(n);
+      }
+    } catch {}
+  }, []);
+
+  // Persist splitAGrams to localStorage
+  useEffect(() => {
+    try {
+      if (splitAGrams !== null) {
+        localStorage.setItem("splitAGrams", String(splitAGrams));
+      }
+    } catch {}
+  }, [splitAGrams]);
+
+  // Initialize expected yield from localStorage or default absorption; clamp to totalWater
+  useEffect(() => {
+    const totalWater = (coffeeAmount * 250) / 15;
+    if (expectedYield === null) {
+      try {
+        const savedYield = localStorage.getItem("expectedYield");
+        if (savedYield) {
+          const parsed = Math.round(Math.max(0, Math.min(parseFloat(savedYield), totalWater)));
+          if (!Number.isNaN(parsed)) {
+            setExpectedYield(parsed);
+            return;
+          }
+        }
+        const savedRatio = localStorage.getItem("yieldRatio");
+        if (savedRatio) {
+          const r = parseFloat(savedRatio);
+          if (!Number.isNaN(r)) {
+            const e = Math.round(Math.max(0, Math.min(r * coffeeAmount, totalWater)));
+            setExpectedYield(e);
+            return;
+          }
+        }
+      } catch {}
+      const baseline = Math.round(Math.max(0, totalWater - coffeeAmount * 1.5));
+      setExpectedYield(baseline);
+      return;
+    }
+    // Clamp if coffee or defaults changed
+    const clamped = Math.round(Math.max(0, Math.min(expectedYield, totalWater)));
+    if (clamped !== expectedYield) setExpectedYield(clamped);
+  }, [coffeeAmount, expectedYield]);
+
+  // Persist coffee and ratios to localStorage
+  useEffect(() => {
+    try {
+      const brewRatio = 250 / 15; // water per gram coffee
+      localStorage.setItem("coffeeAmount", String(coffeeAmount));
+      localStorage.setItem("brewRatio", String(brewRatio));
+      if (expectedYield !== null) {
+        localStorage.setItem("expectedYield", String(expectedYield));
+        const ratio = coffeeAmount > 0 ? expectedYield / coffeeAmount : 0;
+        localStorage.setItem("yieldRatio", String(ratio));
+      }
+    } catch {}
+  }, [coffeeAmount, expectedYield]);
 
   // Theme management
   useEffect(() => {
@@ -199,11 +281,18 @@ export default function V60Timer() {
   };
 
   const startTimer = () => {
+    // Resume if paused mid-run
+    if (currentTime > 0 && currentTime < FINAL_END_TIME) {
+      setIsRunning(true);
+      return;
+    }
+    // Fresh start
     setIsRunning(true);
     setCurrentTime(0);
     setCurrentPhase(0);
     setHasFinished(false);
     setSplitAGrams(null);
+    // keep expectedYield as user preference
   };
 
   const pauseTimer = () => {
@@ -216,6 +305,7 @@ export default function V60Timer() {
     setCurrentPhase(0);
     setHasFinished(false);
     setSplitAGrams(null);
+    // keep expectedYield as user preference
   };
 
   const getCurrentPhase = () => {
@@ -251,9 +341,11 @@ export default function V60Timer() {
     }
   };
 
+  const canResume = !isRunning && currentTime > 0 && currentTime < FINAL_END_TIME;
+
   return (
     <div className={`min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 dark:from-indigo-900 dark:via-purple-800 dark:to-pink-700 flex justify-center p-2 sm:p-4 pt-2 sm:pt-4 relative overflow-hidden ${
-      isRunning ? 'items-start sm:items-start' : 'items-center'
+      (isRunning || canResume) ? 'items-start sm:items-start' : 'items-center'
     }`}>
       {/* Animated background elements */}
       <div className="absolute inset-0 opacity-20">
@@ -283,12 +375,12 @@ export default function V60Timer() {
           <CoffeeInput
             coffeeAmount={coffeeAmount}
             setCoffeeAmount={setCoffeeAmount}
-            isRunning={isRunning}
+            isRunning={isRunning || canResume}
           />
 
           {/* Timer Display with adjustment buttons - Only show when running */}
           <AnimatePresence>
-            {isRunning && (
+            {(isRunning || canResume) && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.8, y: -20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -309,15 +401,7 @@ export default function V60Timer() {
 
           {/* Controls */}
           <div className="flex gap-3 justify-center">
-            {!isRunning ? (
-              <Button
-                onClick={startTimer}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-3 text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
-              >
-                <Play className="w-5 h-5 mr-2" />
-                Start
-              </Button>
-            ) : (
+            {isRunning ? (
               <div className="flex gap-3">
                 <Button
                   onClick={pauseTimer}
@@ -327,7 +411,6 @@ export default function V60Timer() {
                   <Pause className="w-5 h-5 mr-2" />
                   Pause
                 </Button>
-                
                 <Button
                   onClick={resetTimer}
                   variant="outline"
@@ -336,12 +419,37 @@ export default function V60Timer() {
                   <RotateCcw className="w-5 h-5" />
                 </Button>
               </div>
+            ) : canResume ? (
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setIsRunning(true)}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-3 text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Resume
+                </Button>
+                <Button
+                  onClick={resetTimer}
+                  variant="outline"
+                  className="border-2 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 px-6 py-3 transition-all duration-300 shadow-lg"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={startTimer}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-3 text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Start
+              </Button>
             )}
           </div>
 
           {/* Phase Timeline - Only show when running */}
           <AnimatePresence>
-            {isRunning && (
+            {(isRunning || canResume) && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -367,23 +475,49 @@ export default function V60Timer() {
           >
             {(() => {
               const totalWater = (coffeeAmount * 250) / 15;
-              const expectedYield = Math.max(0, Math.round(totalWater - coffeeAmount * 1.5));
+              const expectedMl = Math.round(
+                Math.max(0, Math.min((expectedYield ?? 0), totalWater))
+              );
               // Determine grounds split (grams)
               const defaultAGrams = Math.ceil(coffeeAmount / 2);
               const groundsA = Math.max(0, Math.min(splitAGrams ?? defaultAGrams, coffeeAmount));
               const groundsB = Math.max(0, coffeeAmount - groundsA);
               // Compute ml split proportionally to grounds, integers with sum preserved
-              const cupA = coffeeAmount > 0 ? Math.round((expectedYield * groundsA) / coffeeAmount) : 0;
-              const cupB = expectedYield - cupA;
+              const cupA = coffeeAmount > 0 ? Math.round((expectedMl * groundsA) / coffeeAmount) : 0;
+              const cupB = expectedMl - cupA;
               return (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Coffee grounds</div>
-                    <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">{coffeeAmount} g</div>
+                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Expected yield</div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpectedYield(prev => Math.max(0, (prev ?? 0) - 1))}
+                        className="border-2 border-purple-300 dark:border-purple-600"
+                        aria-label="Decrease expected yield"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <div className="w-24 text-right text-sm font-mono font-semibold text-purple-700 dark:text-purple-300" aria-live="polite">
+                        {expectedMl} ml
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpectedYield(prev => Math.round(Math.min((prev ?? 0) + 1, totalWater)))}
+                        className="border-2 border-purple-300 dark:border-purple-600"
+                        aria-label="Increase expected yield"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Expected yield</div>
-                    <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">{expectedYield} ml</div>
+                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Coffee grounds</div>
+                    <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">{coffeeAmount} g</div>
                   </div>
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
