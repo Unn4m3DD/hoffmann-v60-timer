@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Play, Pause, RotateCcw, Coffee, Plus, Minus } from "lucide-react";
@@ -32,14 +32,15 @@ export default function V60Timer() {
   const [, setHasFinished] = useState(false);
   const [splitAGrams, setSplitAGrams] = useState<number | null>(null);
   const [expectedYield, setExpectedYield] = useState<number | null>(null); // ml
+  const [yieldRatio, setYieldRatio] = useState<number | null>(null); // ml per g coffee
 
   const FINAL_END_TIME = 180;
 
   // Load saved theme on mount so UI reflects persisted choice
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('theme');
-      if (saved === 'light' || saved === 'dark' || saved === 'system') {
+      const saved = localStorage.getItem("theme");
+      if (saved === "light" || saved === "dark" || saved === "system") {
         setTheme(saved);
       }
     } catch {}
@@ -51,94 +52,94 @@ export default function V60Timer() {
 
     return [
       // Phase 1: Bloom pour (0-15s)
-      { 
-        id: 0, 
-        time: 0, 
+      {
+        id: 0,
+        time: 0,
         waterAmount: waterAmount * 0.2,
         cumulativeWater: waterAmount * 0.2,
         description: "Bloom pour (0-15s)",
-        endTime: 15
+        endTime: 15,
       },
       // Phase 2: First rest (15-45s)
-      { 
-        id: 1, 
-        time: 15, 
+      {
+        id: 1,
+        time: 15,
         waterAmount: 0,
         cumulativeWater: waterAmount * 0.2,
         description: "Rest (15-45s)",
-        endTime: 45
+        endTime: 45,
       },
       // Phase 3: Second pour (45-60s)
-      { 
-        id: 2, 
-        time: 45, 
+      {
+        id: 2,
+        time: 45,
         waterAmount: waterAmount * 0.2,
         cumulativeWater: waterAmount * 0.4,
         description: "Second pour (45-60s)",
-        endTime: 60
+        endTime: 60,
       },
       // Phase 4: Second rest (60-70s)
-      { 
-        id: 3, 
-        time: 60, 
+      {
+        id: 3,
+        time: 60,
         waterAmount: 0,
         cumulativeWater: waterAmount * 0.4,
         description: "Rest (60-70s)",
-        endTime: 70
+        endTime: 70,
       },
       // Phase 5: Third pour (70-80s)
-      { 
-        id: 4, 
-        time: 70, 
+      {
+        id: 4,
+        time: 70,
         waterAmount: waterAmount * 0.2,
         cumulativeWater: waterAmount * 0.6,
         description: "Third pour (70-80s)",
-        endTime: 80
+        endTime: 80,
       },
       // Phase 6: Third rest (80-90s)
-      { 
-        id: 5, 
-        time: 80, 
+      {
+        id: 5,
+        time: 80,
         waterAmount: 0,
         cumulativeWater: waterAmount * 0.6,
         description: "Rest (80-90s)",
-        endTime: 90
+        endTime: 90,
       },
       // Phase 7: Fourth pour (90-100s)
-      { 
-        id: 6, 
-        time: 90, 
+      {
+        id: 6,
+        time: 90,
         waterAmount: waterAmount * 0.2,
         cumulativeWater: waterAmount * 0.8,
         description: "Fourth pour (90-100s)",
-        endTime: 100
+        endTime: 100,
       },
       // Phase 8: Fourth rest (100-110s)
-      { 
-        id: 7, 
-        time: 100, 
+      {
+        id: 7,
+        time: 100,
         waterAmount: 0,
         cumulativeWater: waterAmount * 0.8,
         description: "Rest (100-110s)",
-        endTime: 110
+        endTime: 110,
       },
       // Phase 9: Final pour (110-120s)
-      { 
-        id: 8, 
-        time: 110, 
+      {
+        id: 8,
+        time: 110,
         waterAmount: waterAmount * 0.2,
         cumulativeWater: waterAmount,
         description: "Final pour (110-120s)",
-        endTime: 120
+        endTime: 120,
       },
       // Phase 10: Final rest (120-180s)
-      { 
-        id: 9, 
-        time: 120, 
+      {
+        id: 9,
+        time: 120,
         waterAmount: 0,
         cumulativeWater: waterAmount,
         description: "Final rest (120-180s)",
-        endTime: FINAL_END_TIME
+        endTime: FINAL_END_TIME,
       },
     ];
   }, []);
@@ -156,9 +157,9 @@ export default function V60Timer() {
       interval = setInterval(() => {
         setCurrentTime((prev) => {
           const newTime = prev + 1;
-          
+
           // Check if we need to move to next phase
-          const nextPhase = phases.find(phase => phase.time === newTime);
+          const nextPhase = phases.find((phase) => phase.time === newTime);
           if (nextPhase && nextPhase.id > currentPhase) {
             setCurrentPhase(nextPhase.id);
           }
@@ -213,37 +214,61 @@ export default function V60Timer() {
     } catch {}
   }, [splitAGrams]);
 
-  // Initialize expected yield from localStorage or default absorption; clamp to totalWater
+  // Initialize yield ratio and expected yield on first run
+  const hasInitializedYield = useRef(false);
   useEffect(() => {
+    if (hasInitializedYield.current) return;
+    hasInitializedYield.current = true;
+    const brewRatio = 250 / 15; // max ml per g
     const totalWater = (coffeeAmount * 250) / 15;
-    if (expectedYield === null) {
-      try {
-        const savedYield = localStorage.getItem("expectedYield");
-        if (savedYield) {
-          const parsed = Math.round(Math.max(0, Math.min(parseFloat(savedYield), totalWater)));
-          if (!Number.isNaN(parsed)) {
-            setExpectedYield(parsed);
-            return;
-          }
+    try {
+      const savedRatio = localStorage.getItem("yieldRatio");
+      if (savedRatio) {
+        const r = parseFloat(savedRatio);
+        if (!Number.isNaN(r)) {
+          const clampedR = Math.max(0, Math.min(r, brewRatio));
+          setYieldRatio(clampedR);
+          const e = Math.round(
+            Math.max(0, Math.min(clampedR * coffeeAmount, totalWater))
+          );
+          setExpectedYield(e);
+          return;
         }
-        const savedRatio = localStorage.getItem("yieldRatio");
-        if (savedRatio) {
-          const r = parseFloat(savedRatio);
-          if (!Number.isNaN(r)) {
-            const e = Math.round(Math.max(0, Math.min(r * coffeeAmount, totalWater)));
-            setExpectedYield(e);
-            return;
-          }
+      }
+      const savedYield = localStorage.getItem("expectedYield");
+      if (savedYield) {
+        const y = parseFloat(savedYield);
+        if (!Number.isNaN(y)) {
+          const rFromY = coffeeAmount > 0 ? y / coffeeAmount : 0;
+          const clampedR = Math.max(0, Math.min(rFromY, brewRatio));
+          setYieldRatio(clampedR);
+          const e = Math.round(
+            Math.max(0, Math.min(clampedR * coffeeAmount, totalWater))
+          );
+          setExpectedYield(e);
+          return;
         }
-      } catch {}
-      const baseline = Math.round(Math.max(0, totalWater - coffeeAmount * 1.5));
-      setExpectedYield(baseline);
-      return;
-    }
-    // Clamp if coffee or defaults changed
-    const clamped = Math.round(Math.max(0, Math.min(expectedYield, totalWater)));
-    if (clamped !== expectedYield) setExpectedYield(clamped);
-  }, [coffeeAmount, expectedYield]);
+      }
+    } catch {}
+    // Default baseline: water minus absorption (~1.5 ml per g retained)
+    const baseline = Math.max(0, totalWater - coffeeAmount * 1.5);
+    const r = coffeeAmount > 0 ? baseline / coffeeAmount : 0;
+    const clampedR = Math.max(0, Math.min(r, brewRatio));
+    setYieldRatio(clampedR);
+    setExpectedYield(
+      Math.round(Math.max(0, Math.min(clampedR * coffeeAmount, totalWater)))
+    );
+  }, [coffeeAmount]);
+
+  // Recompute expected yield when coffee amount or ratio changes
+  useEffect(() => {
+    if (yieldRatio === null) return;
+    const totalWater = (coffeeAmount * 250) / 15;
+    const next = Math.round(
+      Math.max(0, Math.min(yieldRatio * coffeeAmount, totalWater))
+    );
+    if (expectedYield !== next) setExpectedYield(next);
+  }, [coffeeAmount, yieldRatio, expectedYield]);
 
   // Persist coffee and ratios to localStorage
   useEffect(() => {
@@ -253,31 +278,37 @@ export default function V60Timer() {
       localStorage.setItem("brewRatio", String(brewRatio));
       if (expectedYield !== null) {
         localStorage.setItem("expectedYield", String(expectedYield));
-        const ratio = coffeeAmount > 0 ? expectedYield / coffeeAmount : 0;
-        localStorage.setItem("yieldRatio", String(ratio));
+      }
+      if (yieldRatio !== null) {
+        localStorage.setItem("yieldRatio", String(yieldRatio));
       }
     } catch {}
-  }, [coffeeAmount, expectedYield]);
+  }, [coffeeAmount, expectedYield, yieldRatio]);
 
   // Theme management
   useEffect(() => {
     const root = window.document.documentElement;
-    
+
     if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
+        ? "dark"
+        : "light";
       root.classList.toggle("dark", systemTheme === "dark");
     } else {
       root.classList.toggle("dark", theme === "dark");
     }
     try {
-      localStorage.setItem('theme', theme);
+      localStorage.setItem("theme", theme);
     } catch {}
   }, [theme]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   const startTimer = () => {
@@ -309,20 +340,20 @@ export default function V60Timer() {
   };
 
   const getCurrentPhase = () => {
-    return phases.find(phase => phase.id === currentPhase) || phases[0];
+    return phases.find((phase) => phase.id === currentPhase) || phases[0];
   };
 
   const getProgress = () => {
     const currentPhaseData = phases[currentPhase];
     if (!currentPhaseData) return 0;
-    
+
     // For the last phase, calculate progress based on endTime
     if (currentPhase >= phases.length - 1) {
       const timeInPhase = currentTime - currentPhaseData.time;
       const phaseDuration = currentPhaseData.endTime - currentPhaseData.time;
       return Math.min((timeInPhase / phaseDuration) * 100, 100);
     }
-    
+
     // For other phases, calculate based on next phase start time
     const nextPhaseData = phases[currentPhase + 1];
     const phaseDuration = nextPhaseData.time - currentPhaseData.time;
@@ -333,27 +364,30 @@ export default function V60Timer() {
   const adjustTime = (seconds: number) => {
     const newTime = Math.max(0, currentTime + seconds);
     setCurrentTime(newTime);
-    
+
     // Update current phase based on new time
-    const newPhase = phases.findIndex(phase => phase.time > newTime) - 1;
+    const newPhase = phases.findIndex((phase) => phase.time > newTime) - 1;
     if (newPhase >= 0 && newPhase !== currentPhase) {
       setCurrentPhase(Math.max(0, newPhase));
     }
   };
 
-  const canResume = !isRunning && currentTime > 0 && currentTime < FINAL_END_TIME;
+  const canResume =
+    !isRunning && currentTime > 0 && currentTime < FINAL_END_TIME;
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 dark:from-indigo-900 dark:via-purple-800 dark:to-pink-700 flex justify-center p-2 sm:p-4 pt-2 sm:pt-4 relative overflow-hidden ${
-      (isRunning || canResume) ? 'items-start sm:items-start' : 'items-center'
-    }`}>
+    <div
+      className={`min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 dark:from-indigo-900 dark:via-purple-800 dark:to-pink-700 flex justify-center p-2 sm:p-4 pt-2 sm:pt-4 relative overflow-hidden ${
+        isRunning || canResume ? "items-start sm:items-start" : "items-center"
+      }`}
+    >
       {/* Animated background elements */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-20 right-20 w-40 h-40 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full blur-3xl animate-pulse delay-1000"></div>
         <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full blur-2xl animate-pulse delay-500"></div>
       </div>
-      
+
       <Card className="w-full max-w-md shadow-2xl border-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl relative z-10 py-3 sm:py-5">
         <CardHeader className="text-center pb-0">
           <div className="flex items-center justify-between">
@@ -365,11 +399,11 @@ export default function V60Timer() {
                 V60 Timer
               </CardTitle>
             </div>
-            
+
             <ThemeToggle theme={theme} setTheme={setTheme} />
           </div>
         </CardHeader>
-        
+
         <CardContent className="space-y-6 sm:space-y-5 pt-0">
           {/* Coffee Input */}
           <CoffeeInput
@@ -476,38 +510,103 @@ export default function V60Timer() {
             {(() => {
               const totalWater = (coffeeAmount * 250) / 15;
               const expectedMl = Math.round(
-                Math.max(0, Math.min((expectedYield ?? 0), totalWater))
+                Math.max(0, Math.min(expectedYield ?? 0, totalWater))
               );
               // Determine grounds split (grams)
               const defaultAGrams = Math.ceil(coffeeAmount / 2);
-              const groundsA = Math.max(0, Math.min(splitAGrams ?? defaultAGrams, coffeeAmount));
+              const groundsA = Math.max(
+                0,
+                Math.min(splitAGrams ?? defaultAGrams, coffeeAmount)
+              );
               const groundsB = Math.max(0, coffeeAmount - groundsA);
               // Compute ml split proportionally to grounds, integers with sum preserved
-              const cupA = coffeeAmount > 0 ? Math.round((expectedMl * groundsA) / coffeeAmount) : 0;
+              const cupA =
+                coffeeAmount > 0
+                  ? Math.round((expectedMl * groundsA) / coffeeAmount)
+                  : 0;
               const cupB = expectedMl - cupA;
               return (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Expected yield</div>
-                    <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                      Expected yield
+                    </div>
+                    <div className="flex items-center gap-1">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setExpectedYield(prev => Math.max(0, (prev ?? 0) - 1))}
+                        onClick={() => {
+                          const brewRatio = 250 / 15;
+                          const totalWater = (coffeeAmount * 250) / 15;
+                          const baseline = Math.max(
+                            0,
+                            totalWater - coffeeAmount * 1.5
+                          );
+                          const r =
+                            coffeeAmount > 0 ? baseline / coffeeAmount : 0;
+                          const clampedR = Math.max(0, Math.min(r, brewRatio));
+                          setYieldRatio(clampedR);
+                        }}
+                        className="border-2 border-purple-300 dark:border-purple-600"
+                        aria-label="Reset expected yield ratio to default"
+                        title="Reset"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setYieldRatio((prev) => {
+                            const brewRatio = 250 / 15;
+                            const current =
+                              prev ??
+                              (coffeeAmount > 0
+                                ? (expectedYield ?? 0) / coffeeAmount
+                                : 0);
+                            const delta =
+                              coffeeAmount > 0 ? 1 / coffeeAmount : 0;
+                            const next = Math.max(
+                              0,
+                              Math.min(current - delta, brewRatio)
+                            );
+                            return next;
+                          });
+                        }}
                         className="border-2 border-purple-300 dark:border-purple-600"
                         aria-label="Decrease expected yield"
                       >
                         <Minus className="w-4 h-4" />
                       </Button>
-                      <div className="w-24 text-right text-sm font-mono font-semibold text-purple-700 dark:text-purple-300" aria-live="polite">
+                      <div
+                        className="text-right text-sm font-mono font-semibold text-purple-700 dark:text-purple-300"
+                        aria-live="polite"
+                      >
                         {expectedMl} ml
                       </div>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setExpectedYield(prev => Math.round(Math.min((prev ?? 0) + 1, totalWater)))}
+                        onClick={() => {
+                          setYieldRatio((prev) => {
+                            const brewRatio = 250 / 15;
+                            const current =
+                              prev ??
+                              (coffeeAmount > 0
+                                ? (expectedYield ?? 0) / coffeeAmount
+                                : 0);
+                            const delta =
+                              coffeeAmount > 0 ? 1 / coffeeAmount : 0;
+                            const next = Math.max(
+                              0,
+                              Math.min(current + delta, brewRatio)
+                            );
+                            return next;
+                          });
+                        }}
                         className="border-2 border-purple-300 dark:border-purple-600"
                         aria-label="Increase expected yield"
                       >
@@ -516,15 +615,25 @@ export default function V60Timer() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Coffee grounds</div>
-                    <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">{coffeeAmount} g</div>
+                    <div className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                      Coffee grounds
+                    </div>
+                    <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">
+                      {coffeeAmount} g
+                    </div>
                   </div>
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium text-purple-700 dark:text-purple-300">Split dose</div>
+                      <div className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                        Split dose
+                      </div>
                       <div className="flex flex-col items-end gap-0.5">
-                        <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">A: {cupA} ml • B: {cupB} ml</div>
-                        <div className="text-xs font-mono text-purple-600 dark:text-purple-400">A: {groundsA} g • B: {groundsB} g</div>
+                        <div className="text-sm font-mono font-semibold text-purple-700 dark:text-purple-300">
+                          A: {cupA} ml • B: {cupB} ml
+                        </div>
+                        <div className="text-xs font-mono text-purple-600 dark:text-purple-400">
+                          A: {groundsA} g • B: {groundsB} g
+                        </div>
                       </div>
                     </div>
                     <Slider
